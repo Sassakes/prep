@@ -238,7 +238,14 @@ Sois CONCRET et CHIFFRÉ. C'est pour un scalper NQ qui trade la volatilité Lond
           }],
         }),
       });
-      const result = await response.json();
+const text = await response.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        console.log("Server response:", text);
+        throw new Error("Serveur timeout (504) — réessaie dans quelques secondes");
+      }
       if (result.error) {
         throw new Error(result.error.message || JSON.stringify(result.error));
       }
