@@ -107,52 +107,44 @@ async function callAPI(systemPrompt, userMessage, useSearch = true, retries = 1)
       if (useSearch) {
         body.tools = [{ type: "web_search_20250305", name: "web_search" }];
       }
-
       const response = await fetch("/api/briefing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-
       if (!response.ok) {
         const errText = await response.text();
         if (attempt < retries) continue;
-        throw new Error(`HTTP ${response.status}: ${errText.slice(0, 200)}`);
+        throw new Error("HTTP " + response.status + ": " + errText.slice(0, 200));
       }
-
       const text = await response.text();
       let result;
-      try { result = JSON.parse(text); } catch {
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
         if (attempt < retries) continue;
         throw new Error("Réponse serveur invalide");
       }
-
       if (result.error) {
         if (attempt < retries && !result.error.message?.includes("credit")) continue;
         throw new Error(result.error.message || "Erreur API");
       }
-
       let fullText = "";
       for (const block of result.content || []) {
         if (block.type === "text" && block.text) fullText += block.text;
       }
-
       if (!fullText) {
         if (attempt < retries) continue;
         throw new Error("Réponse vide");
       }
-
       const cleaned = fullText.replace(/```json|```/g, "").trim();
       const match = cleaned.match(/\{[\s\S]*\}/);
       if (!match) {
         if (attempt < retries) continue;
         throw new Error("Pas de JSON dans la réponse");
       }
-
-      try { return JSON.parse(match[0]); } catch {
-        if (attempt < retries) continue;
-throw new Error("JSON malformé");
-      }
+      const parsed = JSON.parse(match[0]);
+      return parsed;
     } catch (err) {
       if (attempt < retries) continue;
       throw err;
