@@ -151,57 +151,6 @@ async function callAPI(systemPrompt, userMessage, useSearch = true, retries = 1)
     }
   }
 }
-
-      // Handle HTTP errors
-      if (!response.ok) {
-        const errText = await response.text();
-        if (attempt < retries) continue;
-        throw new Error(`HTTP ${response.status}: ${errText.slice(0, 100)}`);
-      }
-
-      const text = await response.text();
-
-      // Parse server response
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch {
-        if (attempt < retries) continue;
-        throw new Error("Réponse serveur invalide");
-      }
-
-      // Check API error
-      if (result.error) {
-        if (attempt < retries && !result.error.message?.includes("credit")) continue;
-        throw new Error(result.error.message || "Erreur API");
-      }
-
-      // Extract text from response blocks
-      let fullText = "";
-      for (const block of result.content || []) {
-        if (block.type === "text" && block.text) fullText += block.text;
-      }
-
-      if (!fullText) {
-        if (attempt < retries) continue;
-        throw new Error("Réponse vide");
-      }
-
-      // Clean and parse JSON
-      const cleaned = fullText.replace(/```json|```/g, "").trim();
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      if (!match) {
-        if (attempt < retries) continue;
-        throw new Error("Pas de JSON dans la réponse");
-      }
-
-return JSON.parse(match[0]);
-    } catch (err) {
-      if (attempt < retries) { attempt++; continue; }
-      throw err;
-    }
-  }
-}
 /* ═══════════════════════════════════════════
    DISCORD — embeds formatés
    ═══════════════════════════════════════════ */
