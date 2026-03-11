@@ -95,20 +95,70 @@ Cherche le calendrier économique de CETTE semaine. FILTRE: uniquement events IM
    API CALL — avec retry et validation
    ═══════════════════════════════════════════ */
 
-async function callAPI(systemPrompt, userMessage, retries = 1) {
+async function callAPI(systemPrompt, userMessage, useSearch = true, retries = 1) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      const body = {
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      };
+      if (useSearch) {
+        body.tools = [{ type: "web_search_20250305", name: "web_search" }];
+      }
+
       const response = await fetch("/api/briefing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 2000,
-          system: systemPrompt,
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
-          messages: [{ role: "user", content: userMessage }],
-        }),
+        body: JSON.stringify(body),
       });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        if (attempt < retries) continue;
+        throw new Error(`HTTP ${response.status}: ${errText.slice(0, 200)}`);
+      }
+
+      const text = await response.text();
+      let result;
+      try { result = JSON.parse(text); } catch {
+        if (attempt < retries) continue;
+        throw new Error("Réponse serveur invalide");
+      }
+
+      if (result.error) {
+        if (attempt < retries && !result.error.message?.includes("credit")) continue;
+        throw new Error(result.error.message || "Erreur API");
+      }
+
+      let fullText = "";
+      for (const block of result.content || []) {
+        if (block.type === "text" && block.text) fullText += block.text;
+      }
+
+      if (!fullText) {
+        if (attempt < retries) continue;
+        throw new Error("Réponse vide");
+      }
+
+      const cleaned = fullText.replace(/```json|```/g, "").trim();
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if (!match) {
+        if (attempt < retries) continue;
+        throw new Error("Pas de JSON dans la réponse");
+      }
+
+      try { return JSON.parse(match[0]); } catch {
+        if (attempt < retries) continue;
+        throw new Error("JSON malformé");
+      }
+    } catch (err) {
+      if (attempt < retries) continue;
+      throw err;
+    }
+  }
+}
 
       // Handle HTTP errors
       if (!response.ok) {
@@ -381,7 +431,7 @@ export default function App() {
     setLoading(prev => ({ ...prev, pulse: true }));
     setStep("① Analyse macro, verdict & movers...");
     try {
-      p = await callAPI(PROMPT_PULSE, ctx + " Cherche données marchés actuels, VIX, recap sessions US récentes, niveaux NQ. Donne le verdict actionable.");
+      p = await callAPI(PROMPT_PULSE, ctx + " Donne le verdict actionable avec niveaux NQ actuels, recap session US veille, VIX context, top movers.", false);
       setPulse(p);
     } catch (e) {
       setErrors(prev => ({ ...prev, pulse: e.message }));
@@ -390,6 +440,7 @@ export default function App() {
     if (abortRef.current) return;
 
     // ── CALL 2: News ──
+    await new Promise(r => setTimeout(r, 5000));
     setLoading(prev => ({ ...prev, news: true }));
     setStep("② Scan des news & catalysts...");
     try {
@@ -402,6 +453,7 @@ export default function App() {
     if (abortRef.current) return;
 
     // ── CALL 3: Calendar ──
+     await new Promise(r => setTimeout(r, 5000));
     setLoading(prev => ({ ...prev, calendar: true }));
     setStep("③ Calendrier économique...");
     try {
