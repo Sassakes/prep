@@ -151,7 +151,7 @@ async function callAPI(systemPrompt, userMessage, useSearch = true, retries = 1)
 
       try { return JSON.parse(match[0]); } catch {
         if (attempt < retries) continue;
-        throw new Error("JSON malformé");
+throw new Error("JSON malformé");
       }
     } catch (err) {
       if (attempt < retries) continue;
