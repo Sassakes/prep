@@ -1,26 +1,35 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   var symbols = [
     'NQ=F', 'ES=F', 'RTY=F', 'YM=F',
     'GC=F', 'CL=F',
     'DX-Y.NYB', '^VIX', '^TNX',
     'EURUSD=X', 'GBPUSD=X', 'USDJPY=X'
-  ].join(',');
+  ];
 
   try {
-    var url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbols;
+    var url = 'https://query2.finance.yahoo.com/v6/finance/quote?symbols=' + symbols.join(',');
     var response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Origin': 'https://finance.yahoo.com',
+        'Referer': 'https://finance.yahoo.com/',
+      }
     });
 
     if (!response.ok) {
-      return res.status(502).json({ error: 'Yahoo Finance error: ' + response.status });
+      var url2 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbols.join(','));
+      response = await fetch(url2);
     }
 
     var data = await response.json();
-    var results = (data.quoteResponse && data.quoteResponse.result) || [];
+    var results = [];
+    if (data.quoteResponse) {
+      results = data.quoteResponse.result || [];
+    }
 
     var quotes = results.map(function (q) {
       return {
@@ -33,12 +42,11 @@ export default async function handler(req, res) {
         high: q.regularMarketDayHigh || 0,
         low: q.regularMarketDayLow || 0,
         volume: q.regularMarketVolume || 0,
-        time: q.regularMarketTime || 0,
       };
     });
 
     return res.status(200).json({ quotes: quotes });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, quotes: [] });
   }
 }
