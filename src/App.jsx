@@ -279,7 +279,6 @@ export default function App() {
       )}
 
       <footer className="ft"><span>FLOW BRIEFING · NQ SCALPER</span><span>Haiku 4.5 + Web Search</span></footer>
-    </div>
   );
 }
 
