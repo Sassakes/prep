@@ -210,7 +210,6 @@ events = highEvents.map(function (e) {
 return “⏰ **” + e.event + “** — “ + e.date + “\n📊 Cons: “ + (e.consensus || “—”) + “ | Prev: “ + (e.previous || “—”) + “\n📈 “ + (e.if_above || “—”) + “\n📉 “ + (e.if_below || “—”);
 }).join(”\n\n”);
 }
-}
 
 var scenarios = “—”;
 if (v && v.scenarios) {
