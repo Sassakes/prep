@@ -209,7 +209,7 @@ async function callAPI(systemPrompt, userMessage, useSearch = true, retries = 1)
         if (attempt < retries) continue;
         throw new Error("JSON malformé");
       }
-    } catch (err) {
+     catch (err) {
       if (attempt < retries) continue;
       throw err;
     }
