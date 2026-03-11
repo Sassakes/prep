@@ -1,6 +1,5 @@
 export const config = {
   runtime: 'edge',
-  maxDuration: 60,
 };
 
 export default async function handler(req) {
@@ -14,8 +13,12 @@ export default async function handler(req) {
   try {
     const body = await req.json();
 
+    // Safety: enforce Haiku + limit tokens
+    body.model = 'claude-haiku-4-5-20251001';
+    if (body.max_tokens > 3000) body.max_tokens = 3000;
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 55000);
+    const timeout = setTimeout(() => controller.abort(), 25000); // 25s hard limit
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -33,11 +36,17 @@ export default async function handler(req) {
 
     return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    const msg = error.name === 'AbortError'
+      ? 'Request timeout (25s) - try again'
+      : error.message;
+    return new Response(JSON.stringify({ error: msg }), {
+      status: error.name === 'AbortError' ? 504 : 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
