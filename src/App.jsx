@@ -262,6 +262,275 @@ export default function App() {
             </div>
           )}
 
+
+App jsx · TXT
+Copier
+
+import { useState, useEffect, useCallback } from "react";
+
+var PROMPT = "Tu es un analyste macro pour un scalper NQ. Cherche les données marché ACTUELLES et donne un briefing.\n\nRÉPONDS EN JSON UNIQUEMENT. Aucun texte hors JSON.\n\n{\"movers\":[{\"name\":\"NQ\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"ES\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"RTY\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"VIX\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"DXY\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"WTI\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"Gold\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"10Y\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"EUR/USD\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"}],\"verdict\":{\"bias\":\"BULLISH\",\"confidence\":\"HIGH\",\"summary\":\"3-5 phrases tradables avec niveaux NQ\",\"levels\":\"R:XXXXX | Pivot:XXXXX | S:XXXXX\",\"scenarios\":[{\"label\":\"BULL\",\"prob\":\"60%\",\"trigger\":\"condition\",\"target\":\"XXXXX\"},{\"label\":\"BEAR\",\"prob\":\"40%\",\"trigger\":\"condition\",\"target\":\"XXXXX\"}]},\"flows\":\"2-3 phrases sur les flux dominants\",\"correlations\":\"DXY vs NQ, yields, oil, gold\",\"news\":[{\"title\":\"titre\",\"impact\":\"high\",\"bias\":\"bullish\",\"summary\":\"1 phrase\"}],\"events\":[{\"name\":\"Event\",\"date\":\"JJ/MM HH:MM CET\",\"consensus\":\"X%\",\"if_above\":\"bull/bear\",\"if_below\":\"bull/bear\"}]}\n\nIMPÉRATIF: prix RÉELS actuels, niveaux NQ concrets, minimum 6 news, minimum 3 events éco de la semaine.";
+
+function getSessions() {
+  var now = new Date();
+  var cet = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+  var t = cet.getHours() * 60 + cet.getMinutes();
+  var list = [
+    { n: "London", h: 9 }, { n: "EU Overlap", h: 14 }, { n: "US Data", h: 14.5 },
+    { n: "US Open", h: 15.5 }, { n: "Power Hour", h: 21 }, { n: "Close", h: 22 }
+  ];
+  return list.map(function (s) {
+    var m = s.h * 60;
+    var d = m - t;
+    var st = d < -30 ? "done" : d < 0 ? "live" : d < 60 ? "soon" : "wait";
+    var lb = st === "done" ? "" : st === "live" ? "LIVE" : Math.floor(d / 60) + "h" + String(d % 60).padStart(2, "0");
+    return { n: s.n, st: st, lb: lb, tm: String(Math.floor(s.h)).padStart(2, "0") + ":" + (s.h % 1 ? "30" : "00") };
+  });
+}
+
+export default function App() {
+  var _d = useState(null), data = _d[0], setData = _d[1];
+  var _l = useState(false), loading = _l[0], setLoading = _l[1];
+  var _e = useState(null), error = _e[0], setError = _e[1];
+  var _r = useState(null), refreshed = _r[0], setRefreshed = _r[1];
+  var _s = useState(getSessions()), sess = _s[0], setSess = _s[1];
+  var _sh = useState(false), showSet = _sh[0], setShowSet = _sh[1];
+  var _wh = useState(""), hook = _wh[0], setHook = _wh[1];
+  var _tw = useState(""), tmpHook = _tw[0], setTmpHook = _tw[1];
+  var _ds = useState(null), dStatus = _ds[0], setDStatus = _ds[1];
+  var _st = useState(""), step = _st[0], setStep = _st[1];
+
+  useEffect(function () {
+    try { setHook(localStorage.getItem("flow_wh") || ""); } catch (e) {}
+    var t = setInterval(function () { setSess(getSessions()); }, 60000);
+    return function () { clearInterval(t); };
+  }, []);
+
+  var save = function () {
+    setHook(tmpHook);
+    try { localStorage.setItem("flow_wh", tmpHook); } catch (e) {}
+    setShowSet(false);
+  };
+
+  var discord = async function (d) {
+    var url = hook || "";
+    try { url = localStorage.getItem("flow_wh") || url; } catch (e) {}
+    if (!url) return;
+    setDStatus("sending");
+    try {
+      var obj = d || data;
+      if (!obj) return;
+      var v = obj.verdict || {};
+      var col = v.bias === "BULLISH" ? 0x00e676 : v.bias === "BEARISH" ? 0xff5252 : 0xffa726;
+      var em = v.bias === "BULLISH" ? "🟢" : v.bias === "BEARISH" ? "🔴" : "🟡";
+      var mvs = (obj.movers || []).map(function (m) { return (m.dir === "up" ? "▲" : "▼") + " **" + m.name + "** " + m.price + " (" + m.pct + ")"; }).join("\n");
+      var nws = (obj.news || []).filter(function (n) { return n.impact === "high"; }).slice(0, 5).map(function (n) { return (n.bias === "bullish" ? "🟢" : n.bias === "bearish" ? "🔴" : "⚪") + " **" + n.title + "** — " + n.summary; }).join("\n");
+      var evs = (obj.events || []).slice(0, 5).map(function (e) { return "⏰ **" + e.name + "** " + e.date + "\n📈 " + (e.if_above || "—") + " | 📉 " + (e.if_below || "—"); }).join("\n\n");
+      var scs = (v.scenarios || []).map(function (s) { return "**" + s.label + "** (" + s.prob + ") — " + s.trigger + " → " + s.target; }).join("\n");
+      var now = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+      var payload = { content: "# ⚡ FLOW BRIEFING — " + now.toUpperCase(), embeds: [
+        { title: em + " " + (v.bias || "—") + " (" + (v.confidence || "—") + ")", description: v.summary || "—", color: col, fields: [{ name: "🎯 Niveaux", value: v.levels || "—" }] },
+        { title: "🔥 Movers", description: mvs || "—", color: 0x1a1a2e },
+        { title: "🎯 Scénarios", description: scs || "—", color: col },
+        { title: "⚠️ News", description: nws || "—", color: 0xff4444 },
+        { title: "📅 Éco", description: evs || "—", color: 0xf472b6 },
+      ]};
+      var r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!r.ok) throw new Error("" + r.status);
+      setDStatus("sent");
+    } catch (e) { setDStatus("error"); }
+    setTimeout(function () { setDStatus(null); }, 3000);
+  };
+
+  var scan = useCallback(async function () {
+    setLoading(true);
+    setError(null);
+    setData(null);
+    setStep("Scan des marchés en cours...");
+    var now = new Date();
+    var dateStr = now.toLocaleDateString("fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    var timeStr = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+    try {
+      var resp = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1500,
+          system: PROMPT,
+          messages: [{ role: "user", content: dateStr + ", " + timeStr + " CET. Morning briefing NQ scalper. Cherche prix actuels NQ ES RTY VIX DXY WTI Gold 10Y EUR/USD + news + calendrier éco semaine." }],
+        }),
+      });
+
+      var text = await resp.text();
+      var result = null;
+      try { result = JSON.parse(text); } catch (e) {
+        throw new Error("Réponse invalide du serveur: " + text.slice(0, 100));
+      }
+
+      if (result.error) {
+        throw new Error(typeof result.error === "string" ? result.error : result.error.message || JSON.stringify(result.error));
+      }
+
+      var fullText = "";
+      var blocks = result.content || [];
+      for (var i = 0; i < blocks.length; i++) {
+        if (blocks[i].type === "text" && blocks[i].text) fullText += blocks[i].text;
+      }
+
+      if (!fullText) {
+        throw new Error("Réponse vide de l'API");
+      }
+
+      var cleaned = fullText.replace(/```json|```/g, "").trim();
+      var match = cleaned.match(/\{[\s\S]*\}/);
+      if (!match) {
+        throw new Error("Pas de JSON: " + fullText.slice(0, 100));
+      }
+
+      var parsed = JSON.parse(match[0]);
+      setData(parsed);
+      setRefreshed(new Date());
+      setSess(getSessions());
+
+      try {
+        var autoHook = localStorage.getItem("flow_wh") || "";
+        if (autoHook) setTimeout(function () { discord(parsed); }, 500);
+      } catch (e) {}
+
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+    setStep("");
+  }, []);
+
+  var sc = function (s) { return s === "live" ? "#00e676" : s === "soon" ? "#ffa726" : s === "done" ? "#333" : "#555"; };
+
+  return (
+    <div className="root">
+      <style>{CSS}</style>
+
+      <header className="hdr">
+        <div className="logo"><div className="lm">⚡</div><div><div className="lt">FLOW BRIEFING</div><div className="ls">Live · AI Analysis</div></div></div>
+        <div className="acts">
+          {refreshed && <span className="tb">MàJ {refreshed.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
+          {data && hook && <button className="btn bd" onClick={function () { discord(); }}>{dStatus === "sending" ? "◌" : "📨"}</button>}
+          <button className="btn bg" onClick={function () { setTmpHook(hook); setShowSet(true); }}>⚙</button>
+          <button className="btn bp" onClick={scan} disabled={loading}>{loading ? "◌ Scan..." : "↻ Scanner"}</button>
+        </div>
+      </header>
+
+      {step && <div className="prog"><span className="dot">●</span> {step}</div>}
+
+      {showSet && (
+        <div className="mo" onClick={function () { setShowSet(false); }}>
+          <div className="md" onClick={function (e) { e.stopPropagation(); }}>
+            <h3>⚙ Paramètres</h3>
+            <label>Webhook Discord</label>
+            <input className="mi" value={tmpHook} onChange={function (e) { setTmpHook(e.target.value); }} placeholder="https://discord.com/api/webhooks/..." />
+            <div className="ma"><button className="btn bg" onClick={function () { setShowSet(false); }}>Annuler</button><button className="btn bp" onClick={save}>OK</button></div>
+          </div>
+        </div>
+      )}
+
+      {dStatus && <div className={"toast " + dStatus}>{dStatus === "sending" ? "📨 Envoi..." : dStatus === "sent" ? "✓ Envoyé" : "✗ Erreur"}</div>}
+
+      {!data && !loading && !error && (
+        <div className="empty">
+          <div style={{ fontSize: 40, opacity: 0.15, marginBottom: 24 }}>⚡</div>
+          <h2>FLOW BRIEFING</h2>
+          <p>Données marché live + analyse IA en un seul scan.<br />~15 secondes, ~$0.005 par scan.</p>
+          <div className="sp">{sess.filter(function (s) { return s.st !== "done"; }).slice(0, 4).map(function (s, i) {
+            return <div key={i} className="sc" style={{ borderColor: sc(s.st), color: sc(s.st) }}>{s.n} <b>{s.lb}</b></div>;
+          })}</div>
+          <button className="bs" onClick={scan}>Scanner les marchés</button>
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="err">
+          <div>⚠ {error}</div>
+          <button className="btn bp" onClick={scan} style={{ marginTop: 12 }}>Réessayer</button>
+        </div>
+      )}
+
+      {loading && !data && (
+        <div className="ct">
+          <div className="sk" style={{ height: 140, marginBottom: 12 }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+            <div className="sk" style={{ height: 80 }} /><div className="sk" style={{ height: 80 }} /><div className="sk" style={{ height: 80 }} />
+          </div>
+          <div className="sk" style={{ height: 44, marginBottom: 4 }} />
+          <div className="sk" style={{ height: 44, marginBottom: 4 }} />
+          <div className="sk" style={{ height: 44, marginBottom: 4 }} />
+        </div>
+      )}
+
+      {data && (
+        <div className="ct">
+
+          <div className="sb">{sess.map(function (s, i) {
+            return <div key={i} className="si" style={{ opacity: s.st === "done" ? 0.3 : 1 }}>
+              <div className="sd" style={{ background: sc(s.st) }} /><div className="sn">{s.n}</div><div className="stm">{s.tm}</div><div className="slb" style={{ color: sc(s.st) }}>{s.lb}</div>
+            </div>;
+          })}</div>
+
+          {data.verdict && (
+            <div className={"vc fade " + (data.verdict.bias === "BULLISH" ? "bull" : data.verdict.bias === "BEARISH" ? "bear" : "neu")}>
+              <div className="vh">
+                <div className="vb" style={{ color: data.verdict.bias === "BULLISH" ? "var(--g)" : data.verdict.bias === "BEARISH" ? "var(--r)" : "var(--o)" }}>
+                  {data.verdict.bias === "BULLISH" ? "▲ " : data.verdict.bias === "BEARISH" ? "▼ " : "— "}{data.verdict.bias}
+                </div>
+                <div className="vcf" style={{ background: data.verdict.confidence === "HIGH" ? "rgba(0,230,118,0.1)" : "rgba(255,167,38,0.1)", color: data.verdict.confidence === "HIGH" ? "var(--g)" : "var(--o)" }}>
+                  {data.verdict.confidence}
+                </div>
+              </div>
+              <p className="vs">{data.verdict.summary}</p>
+              {data.verdict.levels && <div className="vl">🎯 {data.verdict.levels}</div>}
+              {data.verdict.scenarios && data.verdict.scenarios.length > 0 && (
+                <div className="scs">{data.verdict.scenarios.map(function (s, i) {
+                  return <div key={i} className="scn">
+                    <div className="sch"><span style={{ color: s.label === "BULL" ? "var(--g)" : "var(--r)", fontWeight: 700 }}>{s.label}</span><span style={{ color: "var(--c)" }}>{s.prob}</span></div>
+                    <div className="sct">▸ {s.trigger}</div><div className="scta">▸ Target: {s.target}</div>
+                  </div>;
+                })}</div>
+              )}
+            </div>
+          )}
+
+          {data.flows && <div className="ib cy fade"><div className="pl">💰 FLUX</div><p>{data.flows}</p></div>}
+          {data.correlations && <div className="ib og fade"><div className="pl">🔗 CORRÉLATIONS</div><p>{data.correlations}</p></div>}
+
+          {data.movers && data.movers.length > 0 && (
+            <div>
+              <div className="st"><span style={{ color: "var(--o)" }}>●</span> MARCHÉ</div>
+              <div className="mg">{data.movers.map(function (m, i) {
+                var up = m.dir === "up";
+                return <div key={i} className="mc fade" style={{ animationDelay: i * 30 + "ms" }}>
+                  <div className="mt"><span className="mn">{m.name}</span><span className="mp" style={{ color: up ? "var(--g)" : "var(--r)" }}>{m.pct}</span></div>
+                  <div className="mpx">{m.price}</div>
+                </div>;
+              })}</div>
+            </div>
+          )}
+
+          {data.news && data.news.length > 0 && (
+            <div>
+              <div className="st"><span style={{ color: "var(--r)" }}>●</span> NEWS</div>
+              <div className="nl">{data.news.map(function (n, i) {
+                return <div key={i} className="ni fade" style={{ animationDelay: i * 25 + "ms", borderLeftColor: n.impact === "high" ? "var(--r)" : n.impact === "medium" ? "var(--o)" : "#333" }}>
+                  <div className="nh">
+                    <span className="it" style={{ color: n.impact === "high" ? "var(--r)" : "var(--o)" }}>{(n.impact || "").toUpperCase()}</span>
+                    <span className="nt">{n.title}</span>
+                    <span className="nb" style={{ color: n.bias === "bullish" ? "var(--g)" : n.bias === "bearish" ? "var(--r)" : "#78909c" }}>{n.bias === "bullish" ? "▲" : n.bias === "bearish" ? "▼" : "—"}</span>
+                  </div>
+                  <div className="ns">{n.summary}</div>
+                </div>;
+              })}</div>
+            </div>
+          )}
+
           {data.events && data.events.length > 0 && (
             <div>
               <div className="st"><span style={{ color: "var(--pk)" }}>●</span> CALENDRIER ÉCO</div>
@@ -279,6 +548,7 @@ export default function App() {
       )}
 
       <footer className="ft"><span>FLOW BRIEFING · NQ SCALPER</span><span>Haiku 4.5 + Web Search</span></footer>
+    </div>
   );
 }
 
