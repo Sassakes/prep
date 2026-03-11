@@ -16,7 +16,7 @@ Le JSON doit avoir cette structure exacte:
 {
   "timestamp": "2024-01-15T08:30:00Z",
   "market_pulse": {
-    "sentiment": "risk-on | risk-off | mixed",
+    "sentiment": "risk-on | risk-off | mixed",textBlocks.map
     "vix_context": "description courte du VIX et vol implicite",
     "flow_direction": "description des flux dominants (equity, bonds, commodities)",
     "key_theme": "le thème macro dominant du jour en 1 phrase"
@@ -102,8 +102,17 @@ export default function App() {
 
       const result = await response.json();
 
-      const textBlocks = result.content?.filter((b) => b.type === "text") || [];
-      const fullText = textBlocks.map((b) => b.text).join("");
+      // Extraire le texte de tous les types de blocs
+      let fullText = "";
+      for (const block of result.content || []) {
+        if (block.type === "text" && block.text) {
+          fullText += block.text;
+        }
+      }
+
+      if (!fullText) {
+        console.log("API response:", JSON.stringify(result, null, 2));
+      }
 
       const cleaned = fullText.replace(/```json|```/g, "").trim();
 
@@ -113,6 +122,7 @@ export default function App() {
         setData(parsed);
         setLastRefresh(new Date());
       } else {
+        console.log("Raw text received:", fullText);
         throw new Error("No valid JSON in response");
       }
     } catch (err) {
