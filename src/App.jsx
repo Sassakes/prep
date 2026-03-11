@@ -195,14 +195,9 @@ async function callAPI(systemPrompt, userMessage, useSearch = true, retries = 1)
         throw new Error("Pas de JSON dans la réponse");
       }
 
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        if (attempt < retries) continue;
-        throw new Error("JSON malformé");
-      }
-     catch (err) {
-      if (attempt < retries) continue;
+return JSON.parse(match[0]);
+    } catch (err) {
+      if (attempt < retries) { attempt++; continue; }
       throw err;
     }
   }
