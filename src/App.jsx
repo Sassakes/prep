@@ -219,7 +219,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 6000,
+          max_tokens: 3000,
           system: SYSTEM_PROMPT,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{
