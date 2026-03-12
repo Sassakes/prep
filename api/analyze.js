@@ -1,6 +1,6 @@
 export const config = { runtime: "edge" };
 
-var MODELS = ["claude-sonnet-4-6", "claude-sonnet-4-20250514"];
+var MODELS = ["claude-sonnet-4-20250514", "claude-sonnet-4-6"];
 
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
@@ -17,11 +17,13 @@ export default async function handler(request) {
 
   try {
     var body = await request.json();
+    var lastError = null;
 
     for (var i = 0; i < MODELS.length; i++) {
-      var c = new AbortController();
-      var t = setTimeout(function () { c.abort(); }, 22000);
       try {
+        var c = new AbortController();
+        var t = setTimeout(function () { c.abort(); }, 22000);
+
         var resp = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           signal: c.signal,
@@ -32,15 +34,17 @@ export default async function handler(request) {
           },
           body: JSON.stringify({
             model: MODELS[i],
-            max_tokens: 1800,
+            max_tokens: 1500,
             system: body.system || "",
             messages: body.messages || []
           })
         });
+
         clearTimeout(t);
         var data = await resp.json();
 
         if (data.error && data.error.type === "overloaded_error" && i < MODELS.length - 1) {
+          lastError = "overloaded";
           continue;
         }
 
@@ -50,13 +54,17 @@ export default async function handler(request) {
         });
       } catch (e) {
         clearTimeout(t);
+        lastError = e.name === "AbortError" ? "Timeout" : e.message;
         if (i < MODELS.length - 1) continue;
-        throw e;
       }
     }
+
+    return new Response(JSON.stringify({ error: lastError || "Tous les modèles indisponibles" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
   } catch (err) {
-    var msg = err && err.name === "AbortError" ? "Timeout" : (err && err.message) || "Error";
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: (err && err.message) || "Error" }), {
       status: 500, headers: { "Content-Type": "application/json" }
     });
   }
