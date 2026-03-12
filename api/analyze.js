@@ -1,5 +1,7 @@
 export const config = { runtime: "edge" };
 
+var MODELS = ["claude-sonnet-4-6", "claude-sonnet-4-20250514"];
+
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Content-Type" } });
@@ -16,36 +18,46 @@ export default async function handler(request) {
   try {
     var body = await request.json();
 
-    var c = new AbortController();
-    var t = setTimeout(function () { c.abort(); }, 25000);
+    for (var i = 0; i < MODELS.length; i++) {
+      var c = new AbortController();
+      var t = setTimeout(function () { c.abort(); }, 22000);
+      try {
+        var resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          signal: c.signal,
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: MODELS[i],
+            max_tokens: 1800,
+            system: body.system || "",
+            messages: body.messages || []
+          })
+        });
+        clearTimeout(t);
+        var data = await resp.json();
 
-    var resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: c.signal,
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1800,
-        system: body.system || "",
-        messages: body.messages || []
-      })
-    });
-    clearTimeout(t);
+        if (data.error && data.error.type === "overloaded_error" && i < MODELS.length - 1) {
+          continue;
+        }
 
-    var data = await resp.json();
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-    });
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        });
+      } catch (e) {
+        clearTimeout(t);
+        if (i < MODELS.length - 1) continue;
+        throw e;
+      }
+    }
   } catch (err) {
-    var msg = err && err.name === "AbortError" ? "Timeout 25s" : (err && err.message) || "Error";
+    var msg = err && err.name === "AbortError" ? "Timeout" : (err && err.message) || "Error";
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
+      status: 500, headers: { "Content-Type": "application/json" }
     });
   }
 }
