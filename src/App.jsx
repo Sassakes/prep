@@ -90,7 +90,7 @@ export default function App() {
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 1500,
-          system: PROMPT,
+          system: ,
           messages: [{ role: "user", content: dateStr + ", " + timeStr + " CET. Morning briefing NQ scalper. Cherche prix actuels NQ ES RTY VIX DXY WTI Gold 10Y EUR/USD + news + calendrier éco semaine." }],
         }),
       });
@@ -268,8 +268,7 @@ Copier
 
 import { useState, useEffect, useCallback } from "react";
 
-var PROMPT = "Tu es un analyste macro pour un scalper NQ. Cherche les données marché ACTUELLES et donne un briefing.\n\nRÉPONDS EN JSON UNIQUEMENT. Aucun texte hors JSON.\n\n{\"movers\":[{\"name\":\"NQ\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"ES\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"RTY\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"VIX\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"DXY\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"WTI\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"Gold\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"10Y\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"},{\"name\":\"EUR/USD\",\"price\":0,\"pct\":\"+0.0%\",\"dir\":\"up\"}],\"verdict\":{\"bias\":\"BULLISH\",\"confidence\":\"HIGH\",\"summary\":\"3-5 phrases tradables avec niveaux NQ\",\"levels\":\"R:XXXXX | Pivot:XXXXX | S:XXXXX\",\"scenarios\":[{\"label\":\"BULL\",\"prob\":\"60%\",\"trigger\":\"condition\",\"target\":\"XXXXX\"},{\"label\":\"BEAR\",\"prob\":\"40%\",\"trigger\":\"condition\",\"target\":\"XXXXX\"}]},\"flows\":\"2-3 phrases sur les flux dominants\",\"correlations\":\"DXY vs NQ, yields, oil, gold\",\"news\":[{\"title\":\"titre\",\"impact\":\"high\",\"bias\":\"bullish\",\"summary\":\"1 phrase\"}],\"events\":[{\"name\":\"Event\",\"date\":\"JJ/MM HH:MM CET\",\"consensus\":\"X%\",\"if_above\":\"bull/bear\",\"if_below\":\"bull/bear\"}]}\n\nIMPÉRATIF: prix RÉELS actuels, niveaux NQ concrets, minimum 6 news, minimum 3 events éco de la semaine.";
-
+var PROMPT = "Analyste macro pour scalper NQ. RÉPONDS EN JSON UNIQUEMENT. Aucun texte hors JSON. Pas de virgule finale dans les tableaux.\n\n{\"movers\":[{\"name\":\"NQ\",\"price\":\"20000\",\"pct\":\"+0.5%\",\"dir\":\"up\"}],\"verdict\":{\"bias\":\"BULLISH\",\"confidence\":\"HIGH\",\"summary\":\"Résumé tradable 3-5 phrases\",\"levels\":\"R:XXXXX Pivot:XXXXX S:XXXXX\",\"bull\":\"Scénario bull avec trigger et target\",\"bear\":\"Scénario bear avec trigger et target\"},\"flows\":\"Analyse des flux 2-3 phrases\",\"correlations\":\"Corrélations clés 2 phrases\",\"news\":[{\"title\":\"titre\",\"impact\":\"high\",\"bias\":\"bullish\",\"summary\":\"résumé\"}],\"events\":[{\"name\":\"Event\",\"date\":\"JJ/MM HH:MM CET\",\"consensus\":\"X%\",\"if_above\":\"impact\",\"if_below\":\"impact\"}]}\n\nRÈGLES: prix RÉELS, minimum 6 movers (NQ ES RTY VIX DXY WTI Gold 10Y EUR/USD), minimum 4 news, minimum 3 events éco. JSON VALIDE uniquement.";
 function getSessions() {
   var now = new Date();
   var cet = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
