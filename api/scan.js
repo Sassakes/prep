@@ -1,6 +1,5 @@
 export const config = { runtime: "edge" };
 
-/* Investing.com RSS + MarketWatch + CNBC */
 var FEEDS = [
   { url: "https://www.investing.com/rss/news.rss", tag: "Investing" },
   { url: "https://www.investing.com/rss/news_1.rss", tag: "Forex" },
@@ -36,24 +35,16 @@ async function fetchFeed(url) {
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
     return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST",
-        "Access-Control-Allow-Headers": "Content-Type"
-      }
+      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Content-Type" }
     });
   }
   if (request.method !== "POST") {
-    return new Response(JSON.stringify({ error: "POST only" }), {
-      status: 405, headers: { "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: { "Content-Type": "application/json" } });
   }
 
   var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not set" }), {
-      status: 500, headers: { "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not set" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 
   try {
@@ -63,27 +54,19 @@ export default async function handler(request) {
       userContent = body.messages[0].content || "";
     }
 
-    /* Fetch all RSS in parallel (3.5s timeout each, silent fail) */
-    var results = await Promise.allSettled(
-      FEEDS.map(function (f) { return fetchFeed(f.url); })
-    );
-
+    var results = await Promise.allSettled(FEEDS.map(function (f) { return fetchFeed(f.url); }));
     var sections = [];
     for (var i = 0; i < results.length; i++) {
       if (results[i].status === "fulfilled" && results[i].value.length > 0) {
         sections.push("[" + FEEDS[i].tag + "]\n" + results[i].value.join("\n"));
       }
     }
-
     if (sections.length > 0) {
-      userContent = userContent +
-        "\n\n===== FLUX RSS EN TEMPS RÉEL =====\n" +
-        sections.join("\n\n");
+      userContent = userContent + "\n\n===== FLUX RSS EN TEMPS RÉEL =====\n" + sections.join("\n\n");
     }
 
-    /* Call Claude — NO web search */
     var c2 = new AbortController();
-    var t2 = setTimeout(function () { c2.abort(); }, 20000);
+    var t2 = setTimeout(function () { c2.abort(); }, 25000);
 
     var resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -95,7 +78,7 @@ export default async function handler(request) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1800,
+        max_tokens: 2500,
         system: body.system || "",
         messages: [{ role: "user", content: userContent }]
       })
@@ -103,13 +86,9 @@ export default async function handler(request) {
     clearTimeout(t2);
 
     var data = await resp.json();
-    return new Response(JSON.stringify(data), {
-      status: 200, headers: { "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (err) {
     var msg = err && err.name === "AbortError" ? "Timeout" : (err && err.message) || "Error";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500, headers: { "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 }
