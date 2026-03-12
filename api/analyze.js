@@ -1,6 +1,6 @@
 export const config = { runtime: "edge" };
 
-var MODELS = ["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"];
+var MODELS = ["claude-sonnet-4-20250514", "claude-haiku-4-5-20251001"];
 
 export default async function handler(request) {
   if (request.method === "OPTIONS") {
