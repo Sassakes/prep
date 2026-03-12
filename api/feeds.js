@@ -11,10 +11,7 @@ async function fetchOne(url) {
   try {
     var c = new AbortController();
     var t = setTimeout(function () { c.abort(); }, 3000);
-    var r = await fetch(url, {
-      signal: c.signal,
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-    });
+    var r = await fetch(url, { signal: c.signal, headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } });
     clearTimeout(t);
     if (!r.ok) return [];
     var txt = await r.text();
@@ -23,7 +20,7 @@ async function fetchOne(url) {
     var m;
     while ((m = re.exec(txt)) !== null && items.length < 5) {
       var title = (m[1] || "").replace(/<[^>]*>/g, "").trim();
-      if (title.length > 10) items.push({ title: title });
+      if (title.length > 10) items.push(title);
     }
     return items;
   } catch (e) { return []; }
@@ -33,22 +30,15 @@ export default async function handler(request) {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET", "Access-Control-Allow-Headers": "Content-Type" } });
   }
-
   try {
-    var results = await Promise.allSettled(
-      FEEDS.map(function (f) { return fetchOne(f.url); })
-    );
+    var results = await Promise.allSettled(FEEDS.map(function (f) { return fetchOne(f.url); }));
     var output = [];
     for (var i = 0; i < results.length; i++) {
       var items = results[i].status === "fulfilled" ? results[i].value : [];
       if (items.length > 0) output.push({ tag: FEEDS[i].tag, items: items });
     }
-    return new Response(JSON.stringify({ feeds: output, time: new Date().toISOString() }), {
-      status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-    });
+    return new Response(JSON.stringify({ feeds: output }), { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message || "Error" }), {
-      status: 500, headers: { "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 }
