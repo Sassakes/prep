@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 /* ═══ SYSTEM PROMPT ═══ */
 var SYSTEM_PROMPT =
+  " Réponds TOUJOURS en français." +
   "Tu es un analyste macro senior dans un prop trading desk." +
   " Tu prépares le morning briefing pour un scalper NQ futures." +
   "\n\nDATE: Nous sommes en MARS 2026. Tes données d'entraînement peuvent être obsolètes." +
