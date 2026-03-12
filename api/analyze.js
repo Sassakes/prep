@@ -9,63 +9,28 @@ export default async function handler(request) {
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: { "Content-Type": "application/json" } });
   }
-
   var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not set" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
-
   try {
     var body = await request.json();
-    var lastError = null;
-
     for (var i = 0; i < MODELS.length; i++) {
       try {
         var c = new AbortController();
         var t = setTimeout(function () { c.abort(); }, 22000);
-
         var resp = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          signal: c.signal,
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01"
-          },
-          body: JSON.stringify({
-            model: MODELS[i],
-            max_tokens: 1500,
-            system: body.system || "",
-            messages: body.messages || []
-          })
+          method: "POST", signal: c.signal,
+          headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({ model: MODELS[i], max_tokens: 1500, system: body.system || "", messages: body.messages || [] })
         });
-
         clearTimeout(t);
         var data = await resp.json();
-
-        if (data.error && data.error.type === "overloaded_error" && i < MODELS.length - 1) {
-          lastError = "overloaded";
-          continue;
-        }
-
-        return new Response(JSON.stringify(data), {
-          status: 200,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-        });
-      } catch (e) {
-        clearTimeout(t);
-        lastError = e.name === "AbortError" ? "Timeout" : e.message;
-        if (i < MODELS.length - 1) continue;
-      }
+        if (data.error && data.error.type === "overloaded_error" && i < MODELS.length - 1) continue;
+        return new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+      } catch (e) { clearTimeout(t); if (i < MODELS.length - 1) continue; throw e; }
     }
-
-    return new Response(JSON.stringify({ error: lastError || "Tous les modèles indisponibles" }), {
-      status: 503,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-    });
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err && err.message) || "Error" }), {
-      status: 500, headers: { "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify({ error: (err && err.name === "AbortError") ? "Timeout" : (err && err.message) || "Error" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 }
