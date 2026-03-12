@@ -1,154 +1,115 @@
 export const config = { runtime: "edge" };
 
-async function fetchHeadlines(feedUrl) {
+/* Investing.com RSS + MarketWatch + CNBC */
+var FEEDS = [
+  { url: "https://www.investing.com/rss/news.rss", tag: "Investing" },
+  { url: "https://www.investing.com/rss/news_1.rss", tag: "Forex" },
+  { url: "https://www.investing.com/rss/news_11.rss", tag: "Commodities" },
+  { url: "https://www.investing.com/rss/news_25.rss", tag: "Stocks" },
+  { url: "https://www.investing.com/rss/news_14.rss", tag: "Economy" },
+  { url: "https://feeds.marketwatch.com/marketwatch/topstories/", tag: "MarketWatch" },
+  { url: "https://www.cnbc.com/id/100003114/device/rss/rss.html", tag: "CNBC" }
+];
+
+async function fetchFeed(url) {
   try {
-    var controller = new AbortController();
-    var timer = setTimeout(function () {
-      controller.abort();
-    }, 4000);
-
-    var response = await fetch(feedUrl, {
-      signal: controller.signal,
-      headers: { "User-Agent": "Mozilla/5.0" },
+    var c = new AbortController();
+    var t = setTimeout(function () { c.abort(); }, 3500);
+    var r = await fetch(url, {
+      signal: c.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
     });
-
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      return [];
+    clearTimeout(t);
+    if (!r.ok) return [];
+    var txt = await r.text();
+    var items = [];
+    var re = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/gi;
+    var m;
+    while ((m = re.exec(txt)) !== null) {
+      var s = m[1].replace(/<[^>]*>/g, "").trim();
+      if (s.length > 15 && items.length < 8) items.push(s);
     }
-
-    var text = await response.text();
-    var titles = [];
-    var regex = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/gi;
-    var match;
-
-    while ((match = regex.exec(text)) !== null) {
-      var title = match[1].replace(/<[^>]*>/g, "").trim();
-      if (title.length > 10 && titles.length < 10) {
-        titles.push(title);
-      }
-    }
-
-    return titles;
-  } catch (e) {
-    return [];
-  }
+    return items;
+  } catch (e) { return []; }
 }
 
 export default async function handler(request) {
-  // CORS
   if (request.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
+        "Access-Control-Allow-Headers": "Content-Type"
+      }
+    });
+  }
+  if (request.method !== "POST") {
+    return new Response(JSON.stringify({ error: "POST only" }), {
+      status: 405, headers: { "Content-Type": "application/json" }
     });
   }
 
-  // Only POST
-  if (request.method !== "POST") {
-    return new Response(
-      JSON.stringify({ error: "POST only" }),
-      { status: 405, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Check API key
   var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not set" }), {
+      status: 500, headers: { "Content-Type": "application/json" }
+    });
   }
 
   try {
-    // Parse request body
     var body = await request.json();
-    var systemPrompt = body.system || "";
     var userContent = "";
     if (body.messages && body.messages.length > 0) {
       userContent = body.messages[0].content || "";
     }
 
-    // Fetch RSS headlines in parallel (fail silently)
-    var feedUrls = [
-      "https://feeds.marketwatch.com/marketwatch/topstories/",
-      "https://feeds.marketwatch.com/marketwatch/marketpulse/",
-      "https://www.investing.com/rss/news.rss",
-    ];
-
-    var feedResults = await Promise.allSettled(
-      feedUrls.map(function (url) {
-        return fetchHeadlines(url);
-      })
+    /* Fetch all RSS in parallel (3.5s timeout each, silent fail) */
+    var results = await Promise.allSettled(
+      FEEDS.map(function (f) { return fetchFeed(f.url); })
     );
 
-    var allHeadlines = [];
-    for (var i = 0; i < feedResults.length; i++) {
-      if (feedResults[i].status === "fulfilled") {
-        var titles = feedResults[i].value;
-        for (var j = 0; j < titles.length; j++) {
-          allHeadlines.push(titles[j]);
-        }
+    var sections = [];
+    for (var i = 0; i < results.length; i++) {
+      if (results[i].status === "fulfilled" && results[i].value.length > 0) {
+        sections.push("[" + FEEDS[i].tag + "]\n" + results[i].value.join("\n"));
       }
     }
 
-    // Append headlines to user message if any were found
-    if (allHeadlines.length > 0) {
-      userContent =
-        userContent +
-        "\n\nTitres financiers récupérés en temps réel:\n- " +
-        allHeadlines.slice(0, 20).join("\n- ");
+    if (sections.length > 0) {
+      userContent = userContent +
+        "\n\n===== FLUX RSS EN TEMPS RÉEL =====\n" +
+        sections.join("\n\n");
     }
 
-    // Build messages array
-    var messages = [{ role: "user", content: userContent }];
+    /* Call Claude — NO web search */
+    var c2 = new AbortController();
+    var t2 = setTimeout(function () { c2.abort(); }, 20000);
 
-    // Call Claude (NO web search = fast 3-5s)
-    var controller2 = new AbortController();
-    var timer2 = setTimeout(function () {
-      controller2.abort();
-    }, 20000);
-
-    var apiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    var resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      signal: controller2.signal,
+      signal: c2.signal,
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: messages,
-      }),
+        max_tokens: 1800,
+        system: body.system || "",
+        messages: [{ role: "user", content: userContent }]
+      })
     });
+    clearTimeout(t2);
 
-    clearTimeout(timer2);
-
-    var apiData = await apiResponse.json();
-
-    return new Response(JSON.stringify(apiData), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+    var data = await resp.json();
+    return new Response(JSON.stringify(data), {
+      status: 200, headers: { "Content-Type": "application/json" }
     });
   } catch (err) {
-    var errorMsg = "Unknown error";
-    if (err && err.name === "AbortError") {
-      errorMsg = "Timeout 20s";
-    } else if (err && err.message) {
-      errorMsg = err.message;
-    }
-
-    return new Response(
-      JSON.stringify({ error: errorMsg }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    var msg = err && err.name === "AbortError" ? "Timeout" : (err && err.message) || "Error";
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500, headers: { "Content-Type": "application/json" }
+    });
   }
 }
