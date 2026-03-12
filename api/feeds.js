@@ -2,8 +2,12 @@ export const config = { runtime: "edge" };
 
 var FEEDS = [
   { url: "https://www.investing.com/rss/news.rss", tag: "General" },
-  { url: "https://www.investing.com/rss/news_14.rss", tag: "Economy" },
-  { url: "https://www.investing.com/rss/news_25.rss", tag: "Stocks" },
+  { url: "https://www.investing.com/rss/news_14.rss", tag: "Economie" },
+  { url: "https://www.investing.com/rss/news_25.rss", tag: "Actions" },
+  { url: "https://www.investing.com/rss/news_1.rss", tag: "Forex" },
+  { url: "https://www.investing.com/rss/news_11.rss", tag: "Matieres Premieres" },
+  { url: "https://www.investing.com/rss/news_285.rss", tag: "Fed" },
+  { url: "https://www.investing.com/rss/news_95.rss", tag: "Crypto" },
   { url: "https://feeds.marketwatch.com/marketwatch/topstories/", tag: "MarketWatch" }
 ];
 
