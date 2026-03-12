@@ -4,8 +4,6 @@ var FEEDS = [
   { url: "https://www.investing.com/rss/news.rss", tag: "General" },
   { url: "https://www.investing.com/rss/news_14.rss", tag: "Economy" },
   { url: "https://www.investing.com/rss/news_25.rss", tag: "Stocks" },
-  { url: "https://www.investing.com/rss/news_1.rss", tag: "Forex" },
-  { url: "https://www.investing.com/rss/news_11.rss", tag: "Commodities" },
   { url: "https://feeds.marketwatch.com/marketwatch/topstories/", tag: "MarketWatch" }
 ];
 
@@ -21,12 +19,11 @@ async function fetchOne(url) {
     if (!r.ok) return [];
     var txt = await r.text();
     var items = [];
-    var re = /<item[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>[\s\S]*?(?:<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>)?/gi;
+    var re = /<item[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/gi;
     var m;
-    while ((m = re.exec(txt)) !== null && items.length < 6) {
+    while ((m = re.exec(txt)) !== null && items.length < 5) {
       var title = (m[1] || "").replace(/<[^>]*>/g, "").trim();
-      var desc = (m[2] || "").replace(/<[^>]*>/g, "").trim().slice(0, 120);
-      if (title.length > 10) items.push({ title: title, desc: desc });
+      if (title.length > 10) items.push({ title: title });
     }
     return items;
   } catch (e) { return []; }
@@ -41,23 +38,17 @@ export default async function handler(request) {
     var results = await Promise.allSettled(
       FEEDS.map(function (f) { return fetchOne(f.url); })
     );
-
     var output = [];
     for (var i = 0; i < results.length; i++) {
       var items = results[i].status === "fulfilled" ? results[i].value : [];
-      if (items.length > 0) {
-        output.push({ tag: FEEDS[i].tag, items: items });
-      }
+      if (items.length > 0) output.push({ tag: FEEDS[i].tag, items: items });
     }
-
     return new Response(JSON.stringify({ feeds: output, time: new Date().toISOString() }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message || "Error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
+      status: 500, headers: { "Content-Type": "application/json" }
     });
   }
 }
