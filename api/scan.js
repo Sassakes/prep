@@ -2,12 +2,9 @@ export const config = { runtime: "edge" };
 
 var FEEDS = [
   { url: "https://www.investing.com/rss/news.rss", tag: "Investing" },
-  { url: "https://www.investing.com/rss/news_1.rss", tag: "Forex" },
-  { url: "https://www.investing.com/rss/news_11.rss", tag: "Commodities" },
-  { url: "https://www.investing.com/rss/news_25.rss", tag: "Stocks" },
   { url: "https://www.investing.com/rss/news_14.rss", tag: "Economy" },
-  { url: "https://feeds.marketwatch.com/marketwatch/topstories/", tag: "MarketWatch" },
-  { url: "https://www.cnbc.com/id/100003114/device/rss/rss.html", tag: "CNBC" }
+  { url: "https://www.investing.com/rss/news_25.rss", tag: "Stocks" },
+  { url: "https://feeds.marketwatch.com/marketwatch/topstories/", tag: "MarketWatch" }
 ];
 
 async function fetchFeed(url) {
@@ -78,7 +75,7 @@ export default async function handler(request) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 2500,
+        max_tokens: 1800,
         system: body.system || "",
         messages: [{ role: "user", content: userContent }]
       })
