@@ -452,7 +452,7 @@ export default function App() {
       )}
 
       {/* ═══ DATA ═══ */}
-      {hasData && !loading && (
+       {(hasData || loading) && (
         <div className="ct">
 
           <div className="sb">{sess.map(function (s, i) {
@@ -461,7 +461,7 @@ export default function App() {
             </div>;
           })}</div>
 
-          {data.verdict && (
+          {data && data.verdict && (
             <div className={"vc fade " + (data.verdict.bias === "BULLISH" ? "bull" : data.verdict.bias === "BEARISH" ? "bear" : "neu")}>
               <div className="vh">
                 <div>
@@ -482,16 +482,16 @@ export default function App() {
             </div>
           )}
 
-          {data.week_summary && <div className="abox fade ab-green"><div className="alab">📋 RÉSUMÉ SEMAINE</div><p className="atxt">{data.week_summary}</p></div>}
+          {data && data.week_summary && <div className="abox fade ab-green"><div className="alab">📋 RÉSUMÉ SEMAINE</div><p className="atxt">{data.week_summary}</p></div>}
 
           <div className="arow">
-            {data.flows && <div className="abox fade ab-cyan"><div className="alab">💰 FLUX INSTITUTIONNELS</div><p className="atxt">{data.flows}</p></div>}
-            {data.intermarket && <div className="abox fade ab-orange"><div className="alab">🔗 INTERMARCHÉ</div><p className="atxt">{data.intermarket}</p></div>}
+            {data && data.flows && <div className="abox fade ab-cyan"><div className="alab">💰 FLUX INSTITUTIONNELS</div><p className="atxt">{data.flows}</p></div>}
+            {data && data.intermarket && <div className="abox fade ab-orange"><div className="alab">🔗 INTERMARCHÉ</div><p className="atxt">{data.intermarket}</p></div>}
           </div>
 
-          {data.session_plan && <div className="abox fade ab-pink"><div className="alab">📅 PLAN DE SESSION</div><p className="atxt">{data.session_plan}</p></div>}
+          {data && data.session_plan && <div className="abox fade ab-pink"><div className="alab">📅 PLAN DE SESSION</div><p className="atxt">{data.session_plan}</p></div>}
 
-          {data.news && data.news.length > 0 && (
+          {data && data.news && data.news.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div className="sec">⚠ NEWS ({data.news.length})</div>
               <div className="nl">{data.news.map(function (n, i) {
