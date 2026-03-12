@@ -209,24 +209,10 @@ export default function App() {
             </div>;
           })}</div>
 
-          {data.verdict && (
-            <div className={"vc fade " + (data.verdict.bias === "BULLISH" ? "bull" : data.verdict.bias === "BEARISH" ? "bear" : "neu")}>
-              <div className="vh">
-                <div className="vb" style={{ color: data.verdict.bias === "BULLISH" ? "var(--g)" : data.verdict.bias === "BEARISH" ? "var(--r)" : "var(--o)" }}>
-                  {data.verdict.bias === "BULLISH" ? "▲ " : data.verdict.bias === "BEARISH" ? "▼ " : "— "}{data.verdict.bias}
-                </div>
-                <div className="vcf" style={{ background: data.verdict.confidence === "HIGH" ? "rgba(0,230,118,0.1)" : "rgba(255,167,38,0.1)", color: data.verdict.confidence === "HIGH" ? "var(--g)" : "var(--o)" }}>
-                  {data.verdict.confidence}
-                </div>
-              </div>
-              <p className="vs">{data.verdict.summary}</p>
-              {data.verdict.levels && <div className="vl">🎯 {data.verdict.levels}</div>}
-              {data.verdict.bull && <div className="scs">
+{data.verdict.bull && <div className="scs">
                 <div className="scn"><div className="sch"><span style={{ color: "var(--g)", fontWeight: 700 }}>BULL</span></div><div className="sct">{data.verdict.bull}</div></div>
                 <div className="scn"><div className="sch"><span style={{ color: "var(--r)", fontWeight: 700 }}>BEAR</span></div><div className="sct">{data.verdict.bear}</div></div>
               </div>}
-                })}</div>
-              )}
             </div>
           )}
 
