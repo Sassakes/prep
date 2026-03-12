@@ -135,6 +135,7 @@ function buildDiscord(data) {
 export default function App() {
   /* State */
   var _d = useState(null); var data = _d[0]; var setData = _d[1];
+  var _h = useState(null); var headlines = _h[0]; var setHeadlines = _h[1];
   var _l = useState(false); var loading = _l[0]; var setLoading = _l[1];
   var _e = useState(null); var error = _e[0]; var setError = _e[1];
   var _r = useState(null); var refreshed = _r[0]; var setRefreshed = _r[1];
@@ -165,6 +166,7 @@ export default function App() {
         var parsed = JSON.parse(saved);
         if (parsed && parsed.data) {
           setData(parsed.data);
+          if (parsed.headlines) setHeadlines(parsed.headlines);
           setRefreshed(new Date(parsed.time));
         }
       }
@@ -183,10 +185,10 @@ export default function App() {
   useEffect(function () {
     if (data) {
       try {
-        localStorage.setItem("fb_data", JSON.stringify({ data: data, time: new Date().toISOString() }));
+        localStorage.setItem("fb_data", JSON.stringify({ data: data, headlines: headlines, time: new Date().toISOString() }));
       } catch (e) {}
     }
-  }, [data]);
+  }, [data, headlines]);
 
   /* Auth functions */
   var tryLogin = function () {
@@ -252,17 +254,52 @@ export default function App() {
   /* Scan */
   var scan = useCallback(async function () {
     setLoading(true); setError(null);
-    setStep("Récupération flux RSS + analyse Sonnet 4.6...");
+
     var now = new Date();
     var ds = now.toLocaleDateString("fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     var ts = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+    /* ── STEP 1: Fetch RSS feeds (fast, 2-3s) ── */
+    setStep("① Récupération des flux RSS...");
+    var feedsData = null;
+    var headlinesText = "";
     try {
-      var resp = await fetch("/api/scan", {
+      var feedResp = await fetch("/api/feeds");
+      if (!feedResp.ok) throw new Error("Feeds " + feedResp.status);
+      var feedJson = await feedResp.json();
+      if (feedJson.error) throw new Error(feedJson.error);
+      feedsData = feedJson.feeds || [];
+      setHeadlines(feedsData);
+
+      // Build text for Claude
+      var parts = [];
+      for (var i = 0; i < feedsData.length; i++) {
+        var section = "[" + feedsData[i].tag + "]";
+        for (var j = 0; j < feedsData[i].items.length; j++) {
+          var item = feedsData[i].items[j];
+          section += "\n• " + item.title;
+          if (item.desc) section += " — " + item.desc;
+        }
+        parts.push(section);
+      }
+      headlinesText = parts.join("\n\n");
+    } catch (e) {
+      // Continue without feeds - Claude will use its knowledge
+      headlinesText = "(Flux RSS indisponibles)";
+    }
+
+    /* ── STEP 2: AI Analysis (Sonnet 4.6, 10-15s) ── */
+    setStep("② Analyse Sonnet 4.6...");
+    try {
+      var userMsg = "Nous sommes le " + ds + ", " + ts + " CET (mars 2026). Morning briefing institutionnel NQ. AUCUN PRIX." +
+        "\n\n===== FLUX RSS =====\n" + headlinesText;
+
+      var resp = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: "Nous sommes le " + ds + ", " + ts + " CET (mars 2026). Morning briefing institutionnel NQ. Analyse les titres RSS. AUCUN PRIX." }]
+          messages: [{ role: "user", content: userMsg }]
         })
       });
       if (!resp.ok) { var et = ""; try { et = await resp.text(); } catch (x) {} throw new Error("Serveur " + resp.status + ": " + et.slice(0, 150)); }
@@ -271,7 +308,7 @@ export default function App() {
       if (result.error) throw new Error(typeof result.error === "string" ? result.error : result.error.message || "Erreur API");
       var full = "";
       var blocks = result.content || [];
-      for (var i = 0; i < blocks.length; i++) { if (blocks[i].type === "text" && blocks[i].text) full += blocks[i].text; }
+      for (var k = 0; k < blocks.length; k++) { if (blocks[k].type === "text" && blocks[k].text) full += blocks[k].text; }
       if (!full) throw new Error("Réponse vide");
       var parsed = safeJSON(full);
       if (!parsed) throw new Error("JSON invalide");
@@ -284,7 +321,7 @@ export default function App() {
   }, [data, webhook]);
 
   var sc = function (s) { return s === "live" ? "#00e676" : s === "soon" ? "#ffa726" : s === "done" ? "#222" : "#444"; };
-  var hasData = data !== null;
+  var hasData = data !== null || headlines !== null;
 
   /* ═══ RENDER ═══ */
   return (
@@ -474,6 +511,30 @@ export default function App() {
             </div>
           )}
 
+          {/* RSS HEADLINES */}
+          {headlines && headlines.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div className="sec">📡 FLUX RSS LIVE ({headlines.reduce(function (a, f) { return a + f.items.length; }, 0)} titres)</div>
+              <div className="feeds-grid">
+                {headlines.map(function (feed, fi) {
+                  return (
+                    <div key={fi} className="feed-card fade" style={{ animationDelay: fi * 50 + "ms" }}>
+                      <div className="feed-tag">{feed.tag}</div>
+                      {feed.items.map(function (item, ii) {
+                        return (
+                          <div key={ii} className="feed-item">
+                            <div className="feed-title">{item.title}</div>
+                            {item.desc && <div className="feed-desc">{item.desc}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div style={{ marginTop: 24 }}>
             <div className="sec">📅 CALENDRIER ÉCONOMIQUE</div>
             <div className="tv-cal">
@@ -573,6 +634,15 @@ var STYLES = [
   ".nh{display:flex;align-items:center;gap:10px;margin-bottom:6px}.nimp{font-family:var(--m);font-size:9px;font-weight:700;letter-spacing:.5px;flex-shrink:0}.nti{font-size:13px;font-weight:600;color:#eee;flex:1}.nbias{font-family:var(--m);font-size:10px;font-weight:700;flex-shrink:0}.ndet{font-size:11px;color:var(--t2);line-height:1.5}",
 
   ".tv-cal{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;overflow:hidden;min-height:400px}.tv-cal .tradingview-widget-copyright{display:none!important}",
+
+  /* RSS Feeds */
+  ".feeds-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-bottom:16px}",
+  ".feed-card{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;overflow:hidden}",
+  ".feed-tag{font-family:var(--m);font-size:9px;font-weight:700;color:var(--c);letter-spacing:1.5px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bd)}",
+  ".feed-item{padding:5px 0;border-bottom:1px solid rgba(255,255,255,.02)}",
+  ".feed-item:last-child{border-bottom:none}",
+  ".feed-title{font-size:11px;font-weight:500;color:#ccd;line-height:1.4}",
+  ".feed-desc{font-size:10px;color:var(--t3);line-height:1.3;margin-top:2px}",
 
   "@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.fade{animation:fadeUp .3s ease both}",
 
