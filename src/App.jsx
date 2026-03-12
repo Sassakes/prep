@@ -260,7 +260,7 @@ export default function App() {
     var ts = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
     /* ── STEP 1: Fetch RSS feeds (fast, 2-3s) ── */
-    setStep("① Récupération des flux RSS...");
+    setStep("① Récupération des news...");
     var feedsData = null;
     var headlinesText = "";
     try {
@@ -271,25 +271,23 @@ export default function App() {
       feedsData = feedJson.feeds || [];
       setHeadlines(feedsData);
 
-      // Build text for Claude
+      // Build text for Claude — titles only, compact
       var parts = [];
       for (var i = 0; i < feedsData.length; i++) {
-        var section = "[" + feedsData[i].tag + "]";
-        for (var j = 0; j < feedsData[i].items.length; j++) {
-          var item = feedsData[i].items[j];
-          section += "\n• " + item.title;
-          if (item.desc) section += " — " + item.desc;
+        var titles = [];
+        for (var j = 0; j < feedsData[i].items.length && j < 4; j++) {
+          titles.push(feedsData[i].items[j].title);
         }
-        parts.push(section);
+        parts.push("[" + feedsData[i].tag + "] " + titles.join(" | "));
       }
-      headlinesText = parts.join("\n\n");
+      headlinesText = parts.join("\n");
     } catch (e) {
       // Continue without feeds - Claude will use its knowledge
       headlinesText = "(Flux RSS indisponibles)";
     }
 
     /* ── STEP 2: AI Analysis (Sonnet 4.6, 10-15s) ── */
-    setStep("② Analyse Sonnet 4.6...");
+    setStep("② Analyse en cours...");
     try {
       var userMsg = "Nous sommes le " + ds + ", " + ts + " CET (mars 2026). Morning briefing institutionnel NQ. AUCUN PRIX." +
         "\n\n===== FLUX RSS =====\n" + headlinesText;
@@ -320,8 +318,8 @@ export default function App() {
     setMenuOpen(false);
   }, [data, webhook]);
 
-  var sc = function (s) { return s === "live" ? "#00e676" : s === "soon" ? "#ffa726" : s === "done" ? "#222" : "#444"; };
-  var hasData = data !== null || headlines !== null;
+  var sc = function (s) { return s === "live" ? "#00e676" : s === "soon" ? "#ffa726" : s === "done" ? "#555" : "#687088"; };
+  var hasData = data !== null;
 
   /* ═══ RENDER ═══ */
   return (
@@ -386,7 +384,7 @@ export default function App() {
           <div className="am-section">
             <div className="am-label">ACTIONS</div>
             <button className={"am-btn am-btn-primary" + (loading ? " am-disabled" : "")} onClick={scan} disabled={loading}>
-              {loading ? "◌ Scan en cours..." : "↻ Nouveau Briefing (Sonnet 4.6)"}
+              {loading ? "◌ Scan en cours..." : "↻ Nouveau Briefing"}
             </button>
             {data && (
               <button className="am-btn am-btn-discord" onClick={sendDiscord}>
@@ -415,7 +413,7 @@ export default function App() {
 
           <div className="am-section am-footer-section">
             <button className="am-btn-logout" onClick={logout}>Déconnexion</button>
-            <span className="am-info">Sonnet 4.6 · ~$0.04/scan</span>
+            <span className="am-info">Sonnet 4 · ~$0.03/scan</span>
           </div>
         </div>
       )}
@@ -452,16 +450,16 @@ export default function App() {
       )}
 
       {/* ═══ DATA ═══ */}
-       {(hasData || loading) && (
+      {hasData && !loading && (
         <div className="ct">
 
           <div className="sb">{sess.map(function (s, i) {
-            return <div key={i} className="si" style={{ opacity: s.st === "done" ? 0.25 : 1 }}>
+            return <div key={i} className="si" style={{ opacity: s.st === "done" ? 0.4 : 1 }}>
               <div className="sd" style={{ background: sc(s.st) }} /><div className="sn">{s.name}</div><div className="stm">{s.tm} CET</div><div className="slb" style={{ color: sc(s.st) }}>{s.lb}</div>
             </div>;
           })}</div>
 
-          {data && data.verdict && (
+          {data.verdict && (
             <div className={"vc fade " + (data.verdict.bias === "BULLISH" ? "bull" : data.verdict.bias === "BEARISH" ? "bear" : "neu")}>
               <div className="vh">
                 <div>
@@ -482,16 +480,16 @@ export default function App() {
             </div>
           )}
 
-          {data && data.week_summary && <div className="abox fade ab-green"><div className="alab">📋 RÉSUMÉ SEMAINE</div><p className="atxt">{data.week_summary}</p></div>}
+          {data.week_summary && <div className="abox fade ab-green"><div className="alab">📋 RÉSUMÉ SEMAINE</div><p className="atxt">{data.week_summary}</p></div>}
 
           <div className="arow">
-            {data && data.flows && <div className="abox fade ab-cyan"><div className="alab">💰 FLUX INSTITUTIONNELS</div><p className="atxt">{data.flows}</p></div>}
-            {data && data.intermarket && <div className="abox fade ab-orange"><div className="alab">🔗 INTERMARCHÉ</div><p className="atxt">{data.intermarket}</p></div>}
+            {data.flows && <div className="abox fade ab-cyan"><div className="alab">💰 FLUX INSTITUTIONNELS</div><p className="atxt">{data.flows}</p></div>}
+            {data.intermarket && <div className="abox fade ab-orange"><div className="alab">🔗 INTERMARCHÉ</div><p className="atxt">{data.intermarket}</p></div>}
           </div>
 
-          {data && data.session_plan && <div className="abox fade ab-pink"><div className="alab">📅 PLAN DE SESSION</div><p className="atxt">{data.session_plan}</p></div>}
+          {data.session_plan && <div className="abox fade ab-pink"><div className="alab">📅 PLAN DE SESSION</div><p className="atxt">{data.session_plan}</p></div>}
 
-          {data && data.news && data.news.length > 0 && (
+          {data.news && data.news.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div className="sec">⚠ NEWS ({data.news.length})</div>
               <div className="nl">{data.news.map(function (n, i) {
@@ -511,30 +509,6 @@ export default function App() {
             </div>
           )}
 
-          {/* RSS HEADLINES */}
-          {headlines && headlines.length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              <div className="sec">📡 FLUX RSS LIVE ({headlines.reduce(function (a, f) { return a + f.items.length; }, 0)} titres)</div>
-              <div className="feeds-grid">
-                {headlines.map(function (feed, fi) {
-                  return (
-                    <div key={fi} className="feed-card fade" style={{ animationDelay: fi * 50 + "ms" }}>
-                      <div className="feed-tag">{feed.tag}</div>
-                      {feed.items.map(function (item, ii) {
-                        return (
-                          <div key={ii} className="feed-item">
-                            <div className="feed-title">{item.title}</div>
-                            {item.desc && <div className="feed-desc">{item.desc}</div>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div style={{ marginTop: 24 }}>
             <div className="sec">📅 CALENDRIER ÉCONOMIQUE</div>
             <div className="tv-cal">
@@ -544,7 +518,7 @@ export default function App() {
         </div>
       )}
 
-      <footer className="ft"><span>FLOW BRIEFING · Institutional NQ Desk</span><span>TradingView · Investing.com · Sonnet 4.6</span></footer>
+      <footer className="ft"><span>FLOW BRIEFING · Institutional NQ Desk</span><span>TradingView · Investing.com · Claude Sonnet</span></footer>
     </div>
   );
 }
