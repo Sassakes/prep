@@ -22,7 +22,7 @@ export default async function handler(request) {
         var resp = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST", signal: c.signal,
           headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: MODELS[i], max_tokens: 1500, system: body.system || "", messages: body.messages || [] })
+          body: JSON.stringify({ model: MODELS[i], max_tokens: 1200, system: body.system || "", messages: body.messages || [] })
         });
         clearTimeout(t);
         var data = await resp.json();
