@@ -290,7 +290,7 @@ export default function App() {
       var parts = [];
       for (var i = 0; i < feedsData.length; i++) {
         var titles = [];
-        for (var j = 0; j < feedsData[i].items.length && j < 2; j++) {
+        for (var j = 0; j < feedsData[i].items.length && j < 4; j++) {
           titles.push(feedsData[i].items[j]);
         }
         parts.push("[" + feedsData[i].tag + "] " + titles.join(" | "));
