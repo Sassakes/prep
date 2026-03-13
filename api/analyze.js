@@ -18,7 +18,7 @@ export default async function handler(request) {
     for (var i = 0; i < MODELS.length; i++) {
       try {
         var c = new AbortController();
-        var t = setTimeout(function () { c.abort(); }, 22000);
+        var t = setTimeout(function () { c.abort(); }, 28000);
         var resp = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST", signal: c.signal,
           headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
