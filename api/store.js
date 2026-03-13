@@ -21,18 +21,22 @@ export default async function handler(request) {
       });
       var d = await r.json();
       if (d.result) {
-        return new Response(d.result, { status: 200, headers: hdrs });
-      }
+  var parsed = d.result;
+  if (typeof parsed === "string") {
+    try { parsed = JSON.parse(parsed); } catch (e) {}
+  }
+  return new Response(JSON.stringify(parsed), { status: 200, headers: hdrs });
+}
       return new Response(JSON.stringify({ data: null }), { status: 200, headers: hdrs });
     }
 
     if (request.method === "POST") {
       var body = await request.text();
-      await fetch(kvUrl + "/set/" + key, {
-        method: "POST",
-        headers: { "Authorization": "Bearer " + kvToken, "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+await fetch(kvUrl + "/set/" + key, {
+  method: "POST",
+  headers: { "Authorization": "Bearer " + kvToken },
+  body: body
+});
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: hdrs });
     }
   } catch (e) {
